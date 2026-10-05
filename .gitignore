@@ -1,0 +1,9 @@
+# Local provider credentials and environment-specific values
+.env
+Amber.env
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+.venv/
+Amber-env/
