@@ -15,14 +15,32 @@ class handler(BaseHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Local-AI-Token")
         super().end_headers()
 
     def do_OPTIONS(self) -> None:
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Local-AI-Token")
         self.end_headers()
+
+    def do_GET(self) -> None:
+        primary = bool(ai_local_server.key_for("OPENAI_API_KEY"))
+        mistral = bool(ai_local_server.key_for("MISTRAL_API_KEY"))
+        groq = bool(ai_local_server.key_for("GROQ_API_KEY"))
+        
+        data = {
+            "openai": primary or mistral or groq,
+            "primaryOpenAI": primary,
+            "mistral": mistral,
+            "groq": groq
+        }
+        resp_bytes = json.dumps(data).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(resp_bytes)))
+        self.end_headers()
+        self.wfile.write(resp_bytes)
 
     def do_POST(self) -> None:
         try:
