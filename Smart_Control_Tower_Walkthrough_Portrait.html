@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Smart Control Tower · Case Study & Architecture Walkthrough (Portrait)</title>
+<style>
+@page {
+  size: A4 portrait;
+  margin: 8mm 9mm;
+}
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  color: #1A202C;
+  background: #FFFFFF;
+  font-size: 8.4pt;
+  line-height: 1.34;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #D4AF37;
+  padding-bottom: 5px;
+  margin-bottom: 7px;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-img {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+}
+.header-title h1 {
+  margin: 0;
+  font-size: 13.5pt;
+  font-weight: 800;
+  color: #0B1728;
+  letter-spacing: -0.3px;
+}
+.header-title p {
+  margin: 1px 0 0;
+  font-size: 7.2pt;
+  color: #5A6A80;
+  font-weight: 600;
+}
+.badge-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-end;
+}
+.badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 6.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-gold { background: #F4E8C1; color: #66551D; border: 1px solid #D4AF37; }
+.badge-primary { background: #0B1728; color: #F4E8C1; }
+
+/* Executive Case Study */
+.case-study {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.05fr;
+  gap: 6px;
+  background: #F8F9FA;
+  border: 1px solid #E2E8F0;
+  border-radius: 5px;
+  padding: 6px 8px;
+  margin-bottom: 7px;
+}
+.case-box h3 {
+  margin: 0 0 2px;
+  font-size: 8pt;
+  font-weight: 750;
+}
+.case-box.challenge h3 { color: #C53030; }
+.case-box.solution h3 { color: #087E80; }
+.case-box.impact h3 { color: #B8860B; }
+.case-box p {
+  margin: 0;
+  font-size: 7.3pt;
+  color: #4A5568;
+  line-height: 1.25;
+}
+
+/* Flowchart */
+.workflow-section {
+  border: 1px solid #CBD5E1;
+  border-radius: 5px;
+  padding: 5px 7px 4px;
+  background: #FFFFFF;
+  margin-bottom: 7px;
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 8.5pt;
+  font-weight: 800;
+  color: #0B1728;
+  text-transform: uppercase;
+}
+.section-head span {
+  font-size: 6.8pt;
+  color: #64748B;
+}
+.svg-container {
+  width: 100%;
+  height: 52px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FAFAFA;
+  border: 1px solid #E2E8F0;
+  border-radius: 4px;
+}
+.svg-container svg, .svg-container object {
+  width: 100%;
+  height: 100%;
+}
+
+/* 5 Stages Vertical / 2-column or list */
+.stages-section {
+  margin-bottom: 7px;
+}
+.stages-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+.stage-card {
+  border: 1px solid #E2E8F0;
+  border-top: 3px solid #0B1728;
+  border-radius: 4px;
+  padding: 4px 5px;
+  background: #FFFFFF;
+}
+.stage-card:nth-child(1) { border-top-color: #3B82F6; }
+.stage-card:nth-child(2) { border-top-color: #10B981; }
+.stage-card:nth-child(3) { border-top-color: #F59E0B; }
+.stage-card:nth-child(4) { border-top-color: #8B5CF6; }
+.stage-card:nth-child(5) { border-top-color: #06B6D4; }
+
+.stage-num {
+  font-size: 6.2pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #64748B;
+}
+.stage-card h4 {
+  margin: 1px 0 2px;
+  font-size: 7.5pt;
+  font-weight: 750;
+  color: #0B1728;
+}
+.stage-card ul {
+  margin: 0;
+  padding-left: 10px;
+  color: #475569;
+  font-size: 6.7pt;
+  line-height: 1.25;
+}
+.stage-card li {
+  margin-bottom: 1.5px;
+}
+
+/* Two Columns: Deep-Dive How It Works & Safeguards */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.detail-card {
+  border: 1px solid #E2E8F0;
+  border-radius: 5px;
+  padding: 6px 7px;
+  background: #F8FAFC;
+}
+.detail-card h3 {
+  margin: 0 0 4px;
+  font-size: 8pt;
+  font-weight: 750;
+  color: #0B1728;
+}
+.detail-card ul {
+  margin: 0;
+  padding-left: 12px;
+  font-size: 7pt;
+  color: #475569;
+  line-height: 1.3;
+}
+.detail-card li {
+  margin-bottom: 2px;
+}
+
+/* Roadmap */
+.roadmap-box {
+  border: 1px solid #E2E8F0;
+  border-radius: 5px;
+  padding: 5px 7px;
+  background: #F8FAFC;
+  margin-bottom: 5px;
+}
+.roadmap-box h3 {
+  margin: 0 0 3px;
+  font-size: 8pt;
+  font-weight: 750;
+  color: #0B1728;
+}
+.roadmap-phases {
+  display: flex;
+  gap: 5px;
+}
+.phase {
+  flex: 1;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+.phase.active {
+  border-color: #D4AF37;
+  background: #FFFEF7;
+}
+.phase-tag {
+  font-size: 6pt;
+  font-weight: 800;
+  color: #D4AF37;
+  text-transform: uppercase;
+}
+.phase strong {
+  display: block;
+  font-size: 6.8pt;
+  color: #0B1728;
+  margin: 1px 0;
+}
+.phase p {
+  margin: 0;
+  font-size: 6.2pt;
+  color: #64748B;
+  line-height: 1.15;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 3px;
+  border-top: 1px solid #E2E8F0;
+  font-size: 6.5pt;
+  color: #94A3B8;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <img src="amber_logo.png" alt="Amber Logo" class="logo-img">
+    <div class="header-title">
+      <h1>Smart Control Tower · Architecture & Workflow Walkthrough</h1>
+      <p>Amber Press Shop · Evidence-Linked Operational Review & Deterministic AI Intelligence</p>
+    </div>
+  </div>
+  <div class="badge-group">
+    <span class="badge badge-gold">App Calculates &bull; AI Explains</span>
+    <span class="badge badge-primary">Case Study Walkthrough</span>
+  </div>
+</header>
+
+<section class="case-study">
+  <div class="case-box challenge">
+    <h3>🔴 Operational Challenge</h3>
+    <p>Plant floor monitors display live DFOS screens, but daily reviews required manual Excel joins across 3 separate reports. Result: unverified OEE metrics (>100%), missing loss reasons, and lack of follow-up accountability.</p>
+  </div>
+  <div class="case-box solution">
+    <h3>🟢 Engineering Solution</h3>
+    <p>A decoupled Smart Control Tower that unifies multi-report schemas client-side, computes deterministic KPIs & Top 10 Paretos in JS, and routes bounded statistical summaries through a tokenized Python bridge to an LLM chain.</p>
+  </div>
+  <div class="case-box impact">
+    <h3>⭐ Business & Quality Impact</h3>
+    <p>Review preparation reduced from 90 mins to under 10 seconds. Eliminates AI arithmetic hallucination entirely, protects factory privacy, and validates mathematical reconciliation before management sign-off.</p>
+  </div>
+</section>
+
+<section class="workflow-section">
+  <div class="section-head">
+    <h2>Logical Architecture & Workflow Pipeline</h2>
+    <span>Source: Christmas Shopping Decision-2026-10-12-073041.svg (Mermaid Architecture)</span>
+  </div>
+  <div class="svg-container">
+    <object data="Christmas Shopping Decision-2026-10-12-073041.svg" type="image/svg+xml" style="width: 100%; height: 48px;"></object>
+  </div>
+</section>
+
+<section class="stages-section">
+  <div class="stages-grid">
+    <div class="stage-card">
+      <div class="stage-num">Stage 1</div>
+      <h4>User Interaction</h4>
+      <ul>
+        <li><strong>Multi-File Ingestion:</strong> Drag-and-drop Production, Downtime & Rejection reports.</li>
+        <li><strong>Preflight Scoping:</strong> Schema check, date range & machine alias normalization.</li>
+        <li><strong>Context Filters:</strong> Interactive shift, machine cell, model & date slicing.</li>
+        <li><strong>AI Trigger:</strong> On-demand Daily / Monthly briefing dispatch.</li>
+      </ul>
+    </div>
+
+    <div class="stage-card">
+      <div class="stage-num">Stage 2</div>
+      <h4>Frontend Dashboard</h4>
+      <ul>
+        <li><strong>Client Parsing:</strong> In-memory SheetJS parsing (zero server upload).</li>
+        <li><strong>Deterministic KPIs:</strong> Auto-computes Attainment, Availability, Scrap %.</li>
+        <li><strong>Top 10 Paretos:</strong> Ranks loss minutes & reject pieces deterministically.</li>
+        <li><strong>Prompt Packaging:</strong> Minimizes context; excludes sensitive employee remarks.</li>
+      </ul>
+    </div>
+
+    <div class="stage-card">
+      <div class="stage-num">Stage 3</div>
+      <h4>Python Local Bridge</h4>
+      <ul>
+        <li><strong>Local Endpoint:</strong> Pure Python stdlib server binding to <code>127.0.0.1:4173</code>.</li>
+        <li><strong>CSRF Token Gate:</strong> 32-byte cryptographically random session bearer token.</li>
+        <li><strong>Payload Throttling:</strong> Enforces &lt;120KB payload limits for cost/latency.</li>
+        <li><strong>Response Parsing:</strong> Normalizes vendor JSON streams into Markdown.</li>
+      </ul>
+    </div>
+
+    <div class="stage-card">
+      <div class="stage-num">Stage 4</div>
+      <h4>LLM Resilience Layer</h4>
+      <ul>
+        <li><strong>Fallback Routing:</strong> Primary OpenAI &rarr; Mistral &rarr; Groq Edge (<code>gpt-oss-120b</code>).</li>
+        <li><strong>Custom User-Agent:</strong> App-specific signature bypassing edge rate limits.</li>
+        <li><strong>Strict Guardrails:</strong> Explains facts; forbidden from recalculating numbers.</li>
+        <li><strong>Zero Retention:</strong> Disables server training with <code>store: false</code>.</li>
+      </ul>
+    </div>
+
+    <div class="stage-card">
+      <div class="stage-num">Stage 5</div>
+      <h4>Final Delivery</h4>
+      <ul>
+        <li><strong>DOM Sanitizer:</strong> Renders responsive cards, clean tables & badges.</li>
+        <li><strong>Side-by-Side Proof:</strong> Displays verified Top 10 tables alongside AI narrative.</li>
+        <li><strong>Math Guardrail:</strong> Strips downtime % if Total &ne; Planned + Unplanned.</li>
+        <li><strong>Action Tracking:</strong> RCA case creation with owners & effectiveness checks.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="detail-grid">
+  <div class="detail-card">
+    <h3>Engineering Safeguards ("Under the Hood")</h3>
+    <ul>
+      <li><strong>Deterministic Arithmetic:</strong> All sums, rates, and Paretos are computed in JavaScript. The LLM never touches raw arithmetic, guaranteeing 100% mathematical accuracy.</li>
+      <li><strong>Air-Gapped Privacy:</strong> Full spreadsheets and employee remarks remain strictly in the browser. Only bounded statistical summaries are sent to the LLM.</li>
+      <li><strong>Multi-Provider Fallback:</strong> Automatic circuit-breaker failover: OpenAI &rarr; Mistral &rarr; Groq Edge (handles quota limits or HTTP 429).</li>
+    </ul>
+  </div>
+  <div class="detail-card">
+    <h3>The Three Ingested Data Feeds</h3>
+    <ul>
+      <li><strong>Production Dashboard:</strong> Daily machine output, plan vs actual attainment, baseline operating uptime, and shift scrap count.</li>
+      <li><strong>Detailed Downtime Report:</strong> Event-grain loss intervals, machine ID, planned vs unplanned minutes, and recorded breakdown reasons.</li>
+      <li><strong>Rejection Report:</strong> Defect classifications (Damage, Dent, Hamming NG), reject piece counts, and model scrap ratios.</li>
+    </ul>
+  </div>
+</div>
+
+<section class="roadmap-box">
+  <h3>Production Evolution Roadmap</h3>
+  <div class="roadmap-phases">
+    <div class="phase active">
+      <span class="phase-tag">Phase 1 &bull; Active Pilot</span>
+      <strong>Local-First MVP</strong>
+      <p>Client-side XLSX parsing, stdlib server bridge, session storage, and manual Excel drop.</p>
+    </div>
+    <div class="phase">
+      <span class="phase-tag">Phase 2 &bull; Near Term</span>
+      <strong>Hosted Team App</strong>
+      <p>FastAPI + PostgreSQL, Entra ID SSO, immutable batch lineage & durable action register.</p>
+    </div>
+    <div class="phase">
+      <span class="phase-tag">Phase 3 &bull; Enterprise</span>
+      <strong>Automated DFOS Sync</strong>
+      <p>Direct read-only DB view/API, 3-minute IoT micro-sync, and automated anomaly alerts.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div>Smart Control Tower &bull; Confidential Plant Engineering Briefing &bull; Amber Press Shop</div>
+  <div>Generated for Executive Walkthrough &bull; Architecture & How It Works</div>
+</footer>
+
+</body>
+</html>

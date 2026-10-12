@@ -1,0 +1,4 @@
+# Smart Control Tower - Requirements
+# The core web server and AI proxy use Python standard library only.
+# Optional helper libraries:
+openpyxl>=3.1.2
