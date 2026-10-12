@@ -75,3 +75,5 @@ class handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(err_bytes)))
             self.end_headers()
             self.wfile.write(err_bytes)
+
+app = handler
