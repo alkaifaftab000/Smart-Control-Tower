@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Smart Control Tower · Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@page {
+  size: A4 portrait;
+  margin: 6mm 8mm 6mm 8mm;
+}
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+:root {
+  --ink: #1A202C;
+  --muted: #64748B;
+  --line: #E7E1D2;
+  --paper: #F8F6F0;
+  --white: #FFFFFF;
+  --navy: #0B1728;
+  --navy-dark: #060E1A;
+  --teal: #D4AF37;
+  --gold: #DFB741;
+  --dark-gold: #B8860B;
+  --pale-gold: #F4E8C1;
+  --red: #E11D48;
+  --green: #0D9488;
+  --shadow: 0 4px 14px rgba(11,23,40,0.06);
+}
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  color: var(--ink);
+  background: #FFFFFF;
+  font-size: 8pt;
+  line-height: 1.32;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Header Banner */
+.hero {
+  background: linear-gradient(135deg, #0B1728 0%, #162A45 100%);
+  border: 1.5px solid rgba(212,175,55,0.4);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #FFFFFF;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+  position: relative;
+  overflow: hidden;
+}
+.hero:after {
+  content: "✨";
+  position: absolute;
+  right: 180px;
+  top: 6px;
+  font-size: 20pt;
+  opacity: 0.15;
+}
+.hero-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-box {
+  background: #FFFFFF;
+  border-radius: 8px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(212,175,55,0.5);
+}
+.logo-img {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+.hero-titles h1 {
+  margin: 0;
+  font-size: 13.5pt;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hero-titles h1 span {
+  color: #F4E8C1;
+}
+.hero-titles p {
+  margin: 2px 0 0;
+  font-size: 7.2pt;
+  color: #D3D9E2;
+  font-weight: 500;
+}
+.hero-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5px;
+  align-items: flex-end;
+}
+
+/* Stickers & Badges */
+.sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2.5px 7px;
+  border-radius: 20px;
+  font-size: 6.8pt;
+  font-weight: 750;
+  letter-spacing: 0.2px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.sticker-gold {
+  background: linear-gradient(135deg, #F4E8C1 0%, #DFB741 100%);
+  color: #473A11;
+  border: 1px solid rgba(184,134,11,0.4);
+}
+.sticker-navy {
+  background: #0B1728;
+  color: #F4E8C1;
+  border: 1px solid rgba(212,175,55,0.4);
+}
+.sticker-teal {
+  background: #E4F3EF;
+  color: #17685E;
+  border: 1px solid #A7D7CD;
+}
+.sticker-red {
+  background: #FDE9ED;
+  color: #A61B3D;
+  border: 1px solid #F4C4D0;
+}
+
+/* Executive Snapshot Grid */
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #FFFFFF;
+  padding: 8px 10px;
+  box-shadow: var(--shadow);
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #F1EFE8;
+}
+.card-title {
+  font-size: 8.5pt;
+  font-weight: 800;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.card p {
+  margin: 0 0 5px;
+  color: #4A5568;
+  font-size: 7.3pt;
+  line-height: 1.35;
+}
+.bullet-list {
+  margin: 0;
+  padding-left: 14px;
+  font-size: 7.2pt;
+  color: #4A5568;
+  line-height: 1.35;
+}
+.bullet-list li {
+  margin-bottom: 2px;
+}
+.bullet-list strong {
+  color: var(--navy);
+}
+
+/* Before vs After Impact Box */
+.impact-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 8px;
+  margin-bottom: 7px;
+}
+.impact-item {
+  background: #FFFFFF;
+  border: 1px solid #E7E1D2;
+  border-radius: 7px;
+  padding: 5px 6px;
+  text-align: center;
+}
+.impact-item .icon {
+  font-size: 13pt;
+  display: block;
+  margin-bottom: 1px;
+}
+.impact-item strong {
+  display: block;
+  font-size: 9pt;
+  font-weight: 800;
+  color: var(--navy);
+}
+.impact-item span {
+  font-size: 6.5pt;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Core Workflow: 5-Stage Visual Pipeline */
+.pipeline-section {
+  border: 1.5px solid rgba(212,175,55,0.45);
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: #FFFEFC;
+  margin-bottom: 7px;
+}
+.pipeline-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.pipeline-title h2 {
+  margin: 0;
+  font-size: 8.5pt;
+  font-weight: 800;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.stages-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+.stage-card {
+  background: #FFFFFF;
+  border: 1px solid #E7E1D2;
+  border-radius: 7px;
+  padding: 5px 6px;
+  position: relative;
+}
+.stage-card:hover {
+  border-color: var(--teal);
+}
+.stage-badge {
+  font-size: 6.2pt;
+  font-weight: 800;
+  color: #775E0F;
+  background: rgba(212,175,55,0.18);
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 3px;
+}
+.stage-name {
+  font-size: 7.5pt;
+  font-weight: 750;
+  color: var(--navy);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.stage-card p {
+  margin: 0;
+  font-size: 6.5pt;
+  color: #596273;
+  line-height: 1.25;
+}
+
+/* Two Columns: Core Axiom & AI Features */
+.features-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+.axiom-card {
+  background: linear-gradient(145deg, #FFFEFC 0%, #FBF7EC 100%);
+  border: 1.5px solid rgba(212,175,55,0.4);
+  border-radius: 9px;
+  padding: 7px 9px;
+}
+.axiom-title {
+  font-size: 8.3pt;
+  font-weight: 800;
+  color: #0B1728;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.axiom-quote {
+  background: #FFFFFF;
+  border-left: 3px solid #D4AF37;
+  padding: 4px 7px;
+  border-radius: 0 6px 6px 0;
+  font-size: 7.2pt;
+  font-weight: 600;
+  color: #473A11;
+  margin-bottom: 4px;
+}
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3.5px;
+  margin-top: 4px;
+}
+
+.ai-card {
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 9px;
+  box-shadow: var(--shadow);
+}
+.ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.ai-avatar-mini {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid #D4AF37;
+  object-fit: cover;
+}
+
+/* Footer Banner */
+.footer {
+  background: #F1EFE8;
+  border-radius: 7px;
+  padding: 4px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 6.5pt;
+  color: #64748B;
+  font-weight: 600;
+}
+.footer strong {
+  color: var(--navy);
+}
+</style>
+</head>
+<body>
+
+<!-- Header Banner -->
+<header class="hero">
+  <div class="hero-left">
+    <div class="logo-box">
+      <img src="assets/amber_logo.png" alt="Amber Logo" class="logo-img">
+    </div>
+    <div class="hero-titles">
+      <h1>🏭 Smart Control Tower <span>· Case Study</span></h1>
+      <p>Amber Press Shop · IoT Daily Performance Review & Deterministic AI Intelligence</p>
+    </div>
+  </div>
+  <div class="hero-badges">
+    <span class="sticker sticker-gold">⚡ AI-Powered Plant Intelligence</span>
+    <span class="sticker sticker-navy">🛡️ Axiom: App Calculates, AI Explains</span>
+  </div>
+</header>
+
+<!-- Before vs After / Impact Bar -->
+<section class="impact-bar">
+  <div class="impact-item">
+    <span class="icon">⏱️</span>
+    <strong>90m ➔ 10s</strong>
+    <span>Review Prep Time</span>
+  </div>
+  <div class="impact-item">
+    <span class="icon">🎯</span>
+    <strong>0% Errors</strong>
+    <span>Zero Math Hallucinations</span>
+  </div>
+  <div class="impact-item">
+    <span class="icon">🔒</span>
+    <strong>100% Private</strong>
+    <span>In-Browser Client RAM Only</span>
+  </div>
+  <div class="impact-item">
+    <span class="icon">🚀</span>
+    <strong>99.9% Uptime</strong>
+    <span>3-Tier LLM Fallback Chain</span>
+  </div>
+</section>
+
+<!-- Executive Problem & Solution Grid -->
+<section class="snapshot-grid">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">🔴 The Challenge (Before)</div>
+      <span class="sticker sticker-red">Manual Friction</span>
+    </div>
+    <p>Plant monitors display live DFOS screens, but daily operational reviews required tedious manual synthesis across 3 separate workbooks:</p>
+    <ul class="bullet-list">
+      <li><strong>Fragmented Files:</strong> Production, Detailed Downtime, and Scrap Rejections lived in disconnected sheets.</li>
+      <li><strong>Arithmetic Glitches:</strong> 22 rows had OEE &gt; 100% (up to 209%), and downtime fields failed mathematical reconciliation.</li>
+      <li><strong>Delayed Root-Cause Analysis:</strong> Supervisors spent 90+ minutes copy-pasting numbers instead of investigating shop-floor fixes.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">🟢 The Intervention (After)</div>
+      <span class="sticker sticker-teal">Smart Automation</span>
+    </div>
+    <p>A zero-install, decoupled workspace unifying all 3 reports with instant calculations and bounded AI explanation:</p>
+    <ul class="bullet-list">
+      <li><strong>Unified Ingestion:</strong> In-browser Drag & Drop harmonizes files by Date, Machine Cell, Model, and Shift.</li>
+      <li><strong>Deterministic Paretos:</strong> Code automatically computes Top 10 Downtime & Scrap rankings before AI sees it.</li>
+      <li><strong>Closed-Loop Actions:</strong> Observed losses link directly to RCA cases, assigned owners, and 30-day recurrence audits.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 5-Stage Architecture Flowchart -->
+<section class="pipeline-section">
+  <div class="pipeline-title">
+    <h2>⚙️ 5-Stage Logical Workflow Pipeline</h2>
+    <span class="sticker sticker-gold">End-to-End Architecture</span>
+  </div>
+  <div class="stages-row">
+    <div class="stage-card">
+      <span class="stage-badge">Stage 1</span>
+      <div class="stage-name">📁 Ingest</div>
+      <p>Drop-zone reads Production, Downtime & Rejection XLSX files directly in browser RAM.</p>
+    </div>
+    <div class="stage-card">
+      <span class="stage-badge">Stage 2</span>
+      <div class="stage-name">🧮 Compute</div>
+      <p>JavaScript calculates Attainment %, OEE, and Top 10 Paretos. Zero server math.</p>
+    </div>
+    <div class="stage-card">
+      <span class="stage-badge">Stage 3</span>
+      <div class="stage-name">🔐 Token Bridge</div>
+      <p>Python bridge (<code>127.0.0.1</code> / Vercel API) validates 32-byte secret tokens & Origin.</p>
+    </div>
+    <div class="stage-card">
+      <span class="stage-badge">Stage 4</span>
+      <div class="stage-name">⚡ Multi-LLM</div>
+      <p>Cascading fallback: <strong>OpenAI</strong> (1st) ➔ <strong>Mistral</strong> (2nd) ➔ <strong>Groq</strong> (3rd). <code>store:false</code>.</p>
+    </div>
+    <div class="stage-card">
+      <span class="stage-badge">Stage 5</span>
+      <div class="stage-name">🎯 Deliver</div>
+      <p>UI renders sanitized Markdown cards alongside verified mathematical evidence tables.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Core Engineering Safeguards & AI Features -->
+<section class="features-grid">
+  <div class="axiom-card">
+    <div class="axiom-title">💡 The Core Engineering Axiom</div>
+    <div class="axiom-quote">"App Calculates, AI Explains"</div>
+    <p style="margin:0 0 4px;font-size:7pt;color:#473A11;">The LLM is strictly prohibited from doing arithmetic, inventing baselines, or hallucinating causes. Code computes verified facts; AI suggests qualitative engineering checks.</p>
+    <div class="tag-cloud">
+      <span class="sticker sticker-gold">🔒 Air-Gapped Rows</span>
+      <span class="sticker sticker-teal">🛡️ Math Integrity Shield</span>
+      <span class="sticker sticker-navy">🏷️ Ephemeral Session</span>
+    </div>
+  </div>
+
+  <div class="ai-card">
+    <div class="ai-head">
+      <div class="card-title">🤖 AI Assistant & Diagnostics</div>
+      <img src="assets/ai-assistant-avatar.png" alt="AI Avatar" class="ai-avatar-mini">
+    </div>
+    <ul class="bullet-list">
+      <li><strong>Monthly & Daily Briefings:</strong> 1-click plain-English executive loss summary.</li>
+      <li><strong>Interactive 'Ask AI':</strong> Plain-language chat (<em>"Why did Cell 1 stop on Dec 1?"</em>).</li>
+      <li><strong>Grounded Verification:</strong> Every suggestion cites exact machine dates & hours.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div><strong>Amber Press Shop</strong> · Confidential Operational Review Case Study</div>
+  <div>🌐 Live Vercel Deployment · ⚡ Built with Pure Web Standards & Resilient AI</div>
+</footer>
+
+</body>
+</html>
