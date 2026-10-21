@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parent
+ASSETS_DIR = ROOT / "assets"
 DEFAULT_HOST = "0.0.0.0" if "PORT" in os.environ else "127.0.0.1"
 HOST = os.environ.get("SMART_TOWER_HOST", os.environ.get("HOST", DEFAULT_HOST))
 PORT = int(os.environ.get("PORT", os.environ.get("SMART_TOWER_PORT", "4173")))
@@ -308,11 +309,12 @@ class PilotHandler(BaseHTTPRequestHandler):
             groq = bool(key_for("GROQ_API_KEY"))
             self.send_json(200, {"openai": primary or mistral or groq, "primaryOpenAI": primary, "mistral": mistral, "groq": groq})
             return
+        dashboard_file = ROOT / "index.html"
         allowed_files = {
-            "/": (ROOT / "prototype.html", "text/html; charset=utf-8"),
-            "/prototype.html": (ROOT / "prototype.html", "text/html; charset=utf-8"),
-            "/assets/amber_logo.png": (ROOT / "assets" / "amber_logo.png", "image/png"),
-            "/assets/ai-assistant-avatar.png": (ROOT / "assets" / "ai-assistant-avatar.png", "image/png"),
+            "/": (dashboard_file, "text/html; charset=utf-8"),
+            "/index.html": (dashboard_file, "text/html; charset=utf-8"),
+            "/assets/amber_logo.png": (ASSETS_DIR / "amber_logo.png", "image/png"),
+            "/assets/ai-assistant-avatar.png": (ASSETS_DIR / "ai-assistant-avatar.png", "image/png"),
         }
         target = allowed_files.get(pathname)
         if not target:
@@ -373,7 +375,7 @@ class PilotHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:
         # Keep local terminal output minimal and never log prompts or credentials.
-        if self.path in ("/", "/prototype.html"):
+        if self.path in ("/", "/index.html"):
             print(f"Dashboard opened from {self.client_address[0]}")
 
 
