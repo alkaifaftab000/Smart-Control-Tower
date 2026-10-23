@@ -99,5 +99,10 @@ check('Chart: unknown metric rejected', String(runChartSpec({ metrics: ['profit'
 check('Chart: reason grouping across reports rejected', String(runChartSpec({ metrics: ['oee'], group_by: 'downtime_reason' }).ok), 'false');
 check('Chart: no matching rows rejected', String(runChartSpec({ metrics: ['downtime_min'], group_by: 'machine', filters: { date: '2030-01-01' } }).ok), 'false');
 
+// 6. Vercel serves public/index.html; it must be the same as index.html
+const pub = path.join(__dirname, '..', 'public', 'index.html');
+check('Deploy: public/index.html matches index.html (run: cp index.html public/index.html)',
+  String(fs.existsSync(pub) && fs.readFileSync(pub, 'utf8') === html), 'true');
+
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nAll formula checks passed');
 process.exit(failed ? 1 : 0);
