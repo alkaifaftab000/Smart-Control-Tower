@@ -318,6 +318,10 @@ class PilotHandler(BaseHTTPRequestHandler):
             "/index.html": (dashboard_file, "text/html; charset=utf-8"),
             "/assets/amber_logo.png": (ASSETS_DIR / "amber_logo.png", "image/png"),
             "/assets/ai-assistant-avatar.png": (ASSETS_DIR / "ai-assistant-avatar.png", "image/png"),
+            "/assets/favicon.png": (ASSETS_DIR / "favicon.png", "image/png"),
+            "/assets/favicon.ico": (ASSETS_DIR / "favicon.ico", "image/x-icon"),
+            "/favicon.ico": (ASSETS_DIR / "favicon.ico", "image/x-icon"),
+            "/assets/apple-touch-icon.png": (ASSETS_DIR / "apple-touch-icon.png", "image/png"),
         }
         target = allowed_files.get(pathname)
         if not target:
