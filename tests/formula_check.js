@@ -27,6 +27,7 @@ const headers = {
   'Total Downtime (mins.)': 'totaldown', 'Planned Downtime (mins.)': 'planned',
   'UnPlanned Downtime (mins.)': 'unplanned', 'Downtime Reason': 'reason',
   'Production': 'productionQty', 'Rejection Qty': 'reject', 'Machine Name': 'machine', 'Date': 'date',
+  'Model Name': 'model', 'Model/SKU': 'model',
 };
 for (const [h, want] of Object.entries(headers))
   check(`header "${h}"`, Object.keys(aliases).find(f => aliases[f].includes(key(h))) || 'NOT MAPPED', want);
@@ -55,6 +56,11 @@ check('Missing uptime -> OEE not shown', String(noUp.oee), 'null');
 // 4. Wrong source percentages must be caught
 const bad = rows.map(r => ({ ...r, availability: r.availability + 5 }));
 check('Mismatched file is flagged', validateOee(bad).status, 'check');
+
+// 4b. A real 0.27% must stay 0.27 (columns are scaled as a whole, not per value)
+eval(pick(/function percentVal[^\n]*/));
+check('Percent: 0.27 stays 0.27', percentVal(0.27), 0.27);
+check('Percent: "61.05%" reads as 61.05', percentVal('61.05%'), 61.05);
 
 // 5. On-demand chart engine: values must come from the same formulas
 var state = {
