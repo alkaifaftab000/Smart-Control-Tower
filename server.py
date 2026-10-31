@@ -1,29 +1,35 @@
 """Local-only API bridge for the Smart Control Tower prototype.
 
-Uses Python's standard library only. Provider keys are read from the local .env
-file (or the process environment); this server never saves dashboard data.
+Provider keys are read from the local .env file (or the process environment).
+Saved report data and insights go through store.py when DATABASE_URL is set.
 """
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import secrets
 import socket
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
+
+import store
 
 
 ROOT = Path(__file__).resolve().parent
-ASSETS_DIR = ROOT / "assets"
+WEB_DIR = ROOT / "public"
+ASSETS_DIR = WEB_DIR / "assets"
 DEFAULT_HOST = "0.0.0.0" if "PORT" in os.environ else "127.0.0.1"
 HOST = os.environ.get("SMART_TOWER_HOST", os.environ.get("HOST", DEFAULT_HOST))
 PORT = int(os.environ.get("PORT", os.environ.get("SMART_TOWER_PORT", "4173")))
 TOKEN = secrets.token_urlsafe(32)
 MAX_BODY_BYTES = 120_000
+MAX_UPLOAD_BODY_BYTES = 4_000_000  # Vercel rejects request bodies above 4.5 MB
+DATA_CACHE: dict[str, tuple[str, dict]] = {}  # month -> (data version, response)
 OPENAI_ENDPOINT = "https://api.openai.com/v1/responses"
 MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
@@ -174,13 +180,14 @@ class ProviderError(Exception):
         self.message = message
 
 
-def ask_openai(messages: list[dict]) -> tuple[str, str]:
+def ask_openai(messages: list[dict], fast: bool = False) -> tuple[str, str]:
     model = os.environ.get("OPENAI_MODEL", "gpt-5").strip() or "gpt-5"
-    data = post_json(
-        OPENAI_ENDPOINT,
-        key_for("OPENAI_API_KEY"),
-        {"model": model, "instructions": INSTRUCTIONS, "input": messages, "store": False},
-    )
+    payload = {"model": model, "instructions": INSTRUCTIONS, "input": messages, "store": False}
+    if fast:
+        # Daily reviews only explain numbers the dashboard already calculated, so the model
+        # skips long reasoning: about 3 s per call instead of 15-30 s.
+        payload["reasoning"] = {"effort": os.environ.get("OPENAI_REVIEW_EFFORT", "minimal").strip() or "minimal"}
+    data = post_json(OPENAI_ENDPOINT, key_for("OPENAI_API_KEY"), payload)
     answer = json_response_text(data)
     if not answer:
         raise ProviderError(502, "OpenAI returned no text response.")
@@ -230,7 +237,7 @@ def fallback_attribution(provider: str, model: str) -> str:
     return f"\n\n🔥Answered by {provider.title()} · {model}"
 
 
-def handle_question(messages: list[dict]) -> dict:
+def handle_question(messages: list[dict], fast: bool = False) -> dict:
     openai_key = key_for("OPENAI_API_KEY")
     mistral_key = key_for("MISTRAL_API_KEY")
     groq_key = key_for("GROQ_API_KEY")
@@ -240,7 +247,7 @@ def handle_question(messages: list[dict]) -> dict:
     reasons = []
     if openai_key:
         try:
-            answer, model = ask_openai(messages)
+            answer, model = ask_openai(messages, fast)
             return {"answer": answer, "provider": "openai", "model": model, "fallback": False}
         except ProviderError as error:
             if error.status != 429:
@@ -293,9 +300,15 @@ class PilotHandler(BaseHTTPRequestHandler):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        if len(body) > 50_000 and "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = gzip.compress(body, compresslevel=6)
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass  # the browser left (e.g. page refreshed) before the answer arrived
 
     def send_text(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
@@ -310,9 +323,40 @@ class PilotHandler(BaseHTTPRequestHandler):
             primary = bool(key_for("OPENAI_API_KEY"))
             mistral = bool(key_for("MISTRAL_API_KEY"))
             groq = bool(key_for("GROQ_API_KEY"))
-            self.send_json(200, {"openai": primary or mistral or groq, "primaryOpenAI": primary, "mistral": mistral, "groq": groq})
+            self.send_json(200, {"openai": primary or mistral or groq, "primaryOpenAI": primary, "mistral": mistral, "groq": groq, "savedData": store.configured(),
+                                 "loginRequired": store.login_required(), "demoAccounts": store.demo_accounts()})
             return
-        dashboard_file = ROOT / "index.html"
+        if pathname in ("/api/data", "/api/insights"):
+            query = parse_qs(urlsplit(self.path).query)
+            try:
+                if store.login_required():
+                    store.user_from_header(self.headers.get("Authorization", ""))
+                with store.connect() as conn:
+                    if pathname == "/api/insights":
+                        self.send_json(200, {"insights": store.list_insights(conn)})
+                        return
+                    # Saved data only changes on upload or delete, so a month is fetched from the
+                    # database once and then served from memory until the next change.
+                    version = store.data_version(conn)
+                    asked = query.get("month", [""])[0]
+                    cached = DATA_CACHE.get(asked)
+                    if cached and cached[0] == version:
+                        self.send_json(200, cached[1])
+                        return
+                    info = store.summary(conn)
+                    month = asked or (info["months"][-1] if info["months"] else "")
+                    rows = store.month_rows(conn, month) if month else {t: [] for t in store.REPORT_TYPES}
+                    payload = {**info, "month": month, "rows": rows}
+                    if len(DATA_CACHE) > 24:
+                        DATA_CACHE.clear()
+                    DATA_CACHE[asked] = (version, payload)
+                    self.send_json(200, payload)
+            except store.StoreError as error:
+                self.send_json(error.status, {"error": error.message, **error.extra})
+            except Exception as error:  # database unreachable: answer instead of leaving the page waiting
+                self.send_json(503, {"error": f"The database is not reachable right now ({type(error).__name__}). Try again in a minute."})
+            return
+        dashboard_file = WEB_DIR / "index.html"
         allowed_files = {
             "/": (dashboard_file, "text/html; charset=utf-8"),
             "/index.html": (dashboard_file, "text/html; charset=utf-8"),
@@ -340,22 +384,74 @@ class PilotHandler(BaseHTTPRequestHandler):
             body = html.encode("utf-8")
         self.send_text(200, body, content_type)
 
+    def read_json(self, limit: int) -> dict:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length < 1 or length > limit:
+            raise store.StoreError(413, "Request is empty or too large.")
+        body = json.loads(self.rfile.read(length).decode("utf-8"))
+        if not isinstance(body, dict):
+            raise store.StoreError(400, "Invalid JSON request.")
+        return body
+
+    def handle_store_post(self, pathname: str) -> None:
+        """Admin uploads and deletes (need a login token); saving insights (anyone on this site)."""
+        try:
+            limit = MAX_UPLOAD_BODY_BYTES if pathname == "/api/uploads/rows" else MAX_BODY_BYTES
+            body = self.read_json(limit)
+            if pathname == "/api/login":
+                self.send_json(200, store.login(body.get("email", ""), body.get("password", "")))
+                return
+            need = "viewer" if pathname == "/api/insights" else "admin"
+            admin = store.user_from_header(self.headers.get("Authorization", ""), need)["email"] if store.login_required() or need == "admin" else None
+            with store.connect() as conn:
+                if pathname == "/api/insights":
+                    result = store.save_insight(conn, body)
+                elif pathname == "/api/uploads/begin":
+                    result = store.begin_upload(conn, admin, body)
+                elif pathname == "/api/uploads/rows":
+                    result = store.add_rows(conn, body)
+                elif pathname == "/api/uploads/commit":
+                    result = store.commit_upload(conn, admin, body)
+                elif pathname == "/api/uploads/abort":
+                    result = store.abort_upload(conn, body)
+                else:
+                    result = store.delete_day(conn, admin, body)
+            self.send_json(200, result)
+        except store.StoreError as error:
+            self.send_json(error.status, {"error": error.message, **error.extra})
+        except (ValueError, UnicodeDecodeError):
+            self.send_json(400, {"error": "Invalid JSON request."})
+        except Exception as error:
+            self.send_json(503, {"error": f"The database is not reachable right now ({type(error).__name__}). Nothing was changed; try again in a minute."})
+
     def do_POST(self) -> None:
         pathname = urlsplit(self.path).path
-        if pathname not in ("/api/ask", "/api/index.py", "/api"):
+        store_routes = ("/api/login", "/api/insights", "/api/uploads/begin", "/api/uploads/rows",
+                        "/api/uploads/commit", "/api/uploads/abort", "/api/days/delete")
+        if pathname not in ("/api/ask", "/api/index.py", "/api") + store_routes:
             self.send_json(404, {"error": "Not found."})
             return
         origin = self.headers.get("Origin", "")
         host = self.headers.get("Host", "")
         origin_netloc = urlsplit(origin).netloc if origin else ""
-        origin_ok = (not origin) or (origin_netloc == host) or (origin == f"http://{HOST}:{PORT}") or (origin == f"https://{host}") or (origin == f"http://{host}")
+        forwarded_host = self.headers.get("X-Forwarded-Host", "")
+        origin_ok = (not origin) or (origin_netloc == host) or (bool(forwarded_host) and origin_netloc == forwarded_host) or (origin == f"http://{HOST}:{PORT}") or (origin == f"https://{host}") or (origin == f"http://{host}")
         
         is_cloud = bool(os.environ.get("VERCEL") or os.environ.get("RENDER") or os.environ.get("SKIP_LOCAL_TOKEN"))
         token_ok = secrets.compare_digest(self.headers.get("X-Local-AI-Token", ""), TOKEN) or is_cloud
         
-        if not (origin_ok and token_ok):
+        if not origin_ok or (not token_ok and pathname in ("/api/ask", "/api/index.py", "/api", "/api/insights")):
             self.send_json(403, {"error": "This request was not authorized."})
             return
+        if pathname in store_routes:
+            self.handle_store_post(pathname)
+            return
+        if store.login_required():
+            try:
+                store.user_from_header(self.headers.get("Authorization", ""))
+            except store.StoreError as error:
+                self.send_json(error.status, {"error": error.message})
+                return
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if length < 1 or length > MAX_BODY_BYTES:
@@ -372,7 +468,7 @@ class PilotHandler(BaseHTTPRequestHandler):
                 for message in messages
             ):
                 raise ProviderError(400, "Conversation content is invalid.")
-            self.send_json(200, handle_question(messages))
+            self.send_json(200, handle_question(messages, fast=body.get("purpose") == "review"))
         except ProviderError as error:
             self.send_json(error.status, {"error": error.message})
         except (ValueError, UnicodeDecodeError):
@@ -392,13 +488,14 @@ def main() -> None:
     DEFAULT_HOST = "0.0.0.0" if "PORT" in os.environ else "127.0.0.1"
     HOST = os.environ.get("SMART_TOWER_HOST", os.environ.get("HOST", DEFAULT_HOST))
     PORT = int(os.environ.get("PORT", os.environ.get("SMART_TOWER_PORT", "4173")))
-    server = HTTPServer((HOST, PORT), PilotHandler)
+    server = ThreadingHTTPServer((HOST, PORT), PilotHandler)
     display_host = "localhost" if HOST in ("127.0.0.1", "0.0.0.0") else HOST
     print(f"Smart Control Tower running at: http://{display_host}:{PORT}/")
     print(f"Server bound to: {HOST}:{PORT}")
     print(f"OpenAI key: {'available' if key_for('OPENAI_API_KEY') else 'not set'}")
     print(f"Mistral fallback key: {'available' if key_for('MISTRAL_API_KEY') else 'not set'}")
     print(f"Groq fallback key: {'available' if key_for('GROQ_API_KEY') else 'not set'}")
+    print(f"Saved data (DATABASE_URL): {'on' if store.configured() else 'off: uploads stay in the browser only'}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
