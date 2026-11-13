@@ -180,9 +180,12 @@ class ProviderError(Exception):
         self.message = message
 
 
-def ask_openai(messages: list[dict], fast: bool = False) -> tuple[str, str]:
+def ask_openai(messages: list[dict], fast: bool = False, json_mode: bool = False) -> tuple[str, str]:
     model = os.environ.get("OPENAI_MODEL", "gpt-5").strip() or "gpt-5"
     payload = {"model": model, "instructions": INSTRUCTIONS, "input": messages, "store": False}
+    if json_mode:
+        # Chart requests must be JSON; without this an open question can get a prose answer.
+        payload["text"] = {"format": {"type": "json_object"}}
     if fast:
         # Daily reviews only explain numbers the dashboard already calculated, so the model
         # skips long reasoning: about 3 s per call instead of 15-30 s.
@@ -194,13 +197,12 @@ def ask_openai(messages: list[dict], fast: bool = False) -> tuple[str, str]:
     return answer, data.get("model", model)
 
 
-def ask_mistral(messages: list[dict]) -> tuple[str, str]:
+def ask_mistral(messages: list[dict], json_mode: bool = False) -> tuple[str, str]:
     model = os.environ.get("MISTRAL_MODEL", "mistral-small-latest").strip() or "mistral-small-latest"
-    data = post_json(
-        MISTRAL_ENDPOINT,
-        key_for("MISTRAL_API_KEY"),
-        {"model": model, "messages": [{"role": "system", "content": INSTRUCTIONS}, *messages]},
-    )
+    payload = {"model": model, "messages": [{"role": "system", "content": INSTRUCTIONS}, *messages]}
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    data = post_json(MISTRAL_ENDPOINT, key_for("MISTRAL_API_KEY"), payload)
     choices = data.get("choices") or []
     answer = choices[0].get("message", {}).get("content") if choices else ""
     if isinstance(answer, list):
@@ -237,7 +239,7 @@ def fallback_attribution(provider: str, model: str) -> str:
     return f"\n\n🔥Answered by {provider.title()} · {model}"
 
 
-def handle_question(messages: list[dict], fast: bool = False) -> dict:
+def handle_question(messages: list[dict], fast: bool = False, json_mode: bool = False) -> dict:
     openai_key = key_for("OPENAI_API_KEY")
     mistral_key = key_for("MISTRAL_API_KEY")
     groq_key = key_for("GROQ_API_KEY")
@@ -247,7 +249,7 @@ def handle_question(messages: list[dict], fast: bool = False) -> dict:
     reasons = []
     if openai_key:
         try:
-            answer, model = ask_openai(messages, fast)
+            answer, model = ask_openai(messages, fast, json_mode)
             return {"answer": answer, "provider": "openai", "model": model, "fallback": False}
         except ProviderError as error:
             if error.status != 429:
@@ -259,7 +261,7 @@ def handle_question(messages: list[dict], fast: bool = False) -> dict:
     last_rate_limit = None
     if mistral_key:
         try:
-            answer, model = ask_mistral(messages)
+            answer, model = ask_mistral(messages, json_mode)
             reason = "; ".join(reasons)
             return {"answer": answer + fallback_attribution("mistral", model), "provider": "mistral", "model": model, "fallback": True, "fallbackReason": reason}
         except ProviderError as error:
@@ -468,7 +470,7 @@ class PilotHandler(BaseHTTPRequestHandler):
                 for message in messages
             ):
                 raise ProviderError(400, "Conversation content is invalid.")
-            self.send_json(200, handle_question(messages, fast=body.get("purpose") == "review"))
+            self.send_json(200, handle_question(messages, fast=body.get("purpose") == "review", json_mode=body.get("format") == "json"))
         except ProviderError as error:
             self.send_json(error.status, {"error": error.message})
         except (ValueError, UnicodeDecodeError):

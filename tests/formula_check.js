@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const pick = re => { const m = html.match(re); if (!m) throw Error('Code block not found: ' + re); return m[0]; };
 eval(pick(/const aliases=\{[^;]*;/).replace('const ', 'var '));
 eval(pick(/function averageReported[^\n]*/));
@@ -105,10 +105,62 @@ check('Chart: unknown metric rejected', String(runChartSpec({ metrics: ['profit'
 check('Chart: reason grouping across reports rejected', String(runChartSpec({ metrics: ['oee'], group_by: 'downtime_reason' }).ok), 'false');
 check('Chart: no matching rows rejected', String(runChartSpec({ metrics: ['downtime_min'], group_by: 'machine', filters: { date: '2030-01-01' } }).ok), 'false');
 
-// 6. Vercel serves public/index.html; it must be the same as index.html
-const pub = path.join(__dirname, '..', 'public', 'index.html');
-check('Deploy: public/index.html matches index.html (run: cp index.html public/index.html)',
-  String(fs.existsSync(pub) && fs.readFileSync(pub, 'utf8') === html), 'true');
+const l3 = lockToDay({ metrics: ['downtime_min'], group_by: 'machine', filters: { date_from: '2026-10-13', date_to: '2026-10-25' } }, '2026-10-19');
+check('Range: "this week" keeps its start', l3.spec.filters.date_from, '2026-10-13');
+check('Range: cut off at the selected day', l3.spec.filters.date_to, '2026-10-19');
+check('Range: no other-day warning', String(l3.otherDay), 'false');
+check('Hour label: "08:30:01 - 09:30:00"', hourLabel('08:30:01 - 09:30:00'), '08:30–09:30');
+
+// 6. Frequency and weekly/monthly review engine, on a small hand-checkable week (Mon 5 Oct to Sun 11 Oct)
+//    Downtime: PP-1 Dent on 5, 6, 7 Oct (30+20+10 min), PP-2 Punch on 7 Oct (40), PP-2 no reason on 8 Oct (15), PP-1 Dent 0 min on 8 Oct.
+//    Rejection: part A on PP-1 rejected 2 of 100 (5 Oct) and 3 of 100 (6 Oct) for Burr; part B 0 of 200 (7 Oct). Rate = 5/400 = 1.25%.
+const H = h => `${h}:30:01 - ${String(Number(h) + 1).padStart(2, '0')}:30:00`;
+state.production = [];
+state.downtime = [
+  { date: '2026-10-05', hour: H('09'), machine: 'PP-1', reason: 'Dent', total: 30, planned: 0, unplanned: 30 },
+  { date: '2026-10-06', hour: H('09'), machine: 'PP-1', reason: 'Dent', total: 20, planned: 0, unplanned: 20 },
+  { date: '2026-10-07', hour: H('10'), machine: 'PP-1', reason: 'Dent', total: 10, planned: 0, unplanned: 10 },
+  { date: '2026-10-07', hour: H('10'), machine: 'PP-2', reason: 'Punch broken', total: 40, planned: 0, unplanned: 40 },
+  { date: '2026-10-08', hour: H('11'), machine: 'PP-2', reason: 'Unclassified', reasonWasBlank: true, total: 15, planned: 0, unplanned: 15 },
+  { date: '2026-10-08', hour: H('11'), machine: 'PP-1', reason: 'Dent', total: 0, planned: 0, unplanned: 0 },
+];
+state.rejection = [
+  { date: '2026-10-05', hour: H('09'), shift: 'Shift A', machine: 'PP-1', model: 'A', production: 100, reject: 2, rejectionReason: 'Burr' },
+  { date: '2026-10-06', hour: H('10'), shift: 'Shift A', machine: 'PP-1', model: 'A', production: 100, reject: 3, rejectionReason: 'Burr' },
+  { date: '2026-10-07', hour: H('11'), shift: 'Shift A', machine: 'PP-2', model: 'B', production: 200, reject: 0, rejectionReason: '' },
+];
+const hoursByMachine = runChartSpec({ metrics: ['downtime_hours'], group_by: 'machine', filters: { date_from: '2026-10-05', date_to: '2026-10-11' } });
+check('Frequency: PP-1 has 3 hours with downtime (0-minute row not counted)', hoursByMachine.items.find(i => i.label === 'PP-1').values[0], 3);
+const daysByMachine = runChartSpec({ metrics: ['downtime_days'], group_by: 'machine', filters: { date_from: '2026-10-05', date_to: '2026-10-11' } });
+check('Frequency: PP-2 had downtime on 2 days', daysByMachine.items.find(i => i.label === 'PP-2').values[0], 2);
+eval(pick(/function startOfWeek[^\n]*/));
+eval(html.match(/<script id="reviewEngine">([\s\S]*?)<\/script>/)[1]);
+const wk = rvWeeks(['2026-10-07', '2026-10-05', '2026-10-12']);
+check('Week: Wednesday 7 Oct is in the week starting Monday 5 Oct', wk[0].key, '2026-10-05');
+check('Week: ends on Sunday 11 Oct', wk[0].to, '2026-10-11');
+check('Week: Monday 12 Oct starts a new week', String(wk.length), '2');
+const rv = rvBuild('2026-10-05', '2026-10-11');
+check('Review: top downtime reason is Dent', rv.downReasons[0].name, 'Dent');
+check('Review: Dent = 30 + 20 + 10 min', rv.downReasons[0].value, 60);
+check('Review: Dent in 3 hours', rv.downReasons[0].hours, 3);
+check('Review: no-reason downtime is not ranked', String(rv.downReasons.some(x => x.name === 'Unclassified')), 'false');
+check('Review: no-reason minutes = 15', rv.totals.noReasonMin, 15);
+check('Review: rejection rate = 5 / 400', rv.totals.ratePercent, 1.25);
+check('Review: part A rate = 5 / 200', rv.parts[0].ratePercent, 2.5);
+check('Review: part B (no rejections) not listed', String(rv.parts.length), '1');
+check('Recurring: PP-1 Dent on 3 of 4 days', `${rv.recurringDown[0].machine} ${rv.recurringDown[0].what[0]} ${rv.recurringDown[0].days}/${rv.recurringDown[0].workDays}`, 'PP-1 Dent 3/4');
+check('Recurring: 3 of 4 days = almost every day', rv.recurringDown[0].howOften, 'Almost every day');
+check('Recurring: one-day problems not listed', String(rv.recurringDown.length), '1');
+check('Recurring: part A Burr on 2 of 3 days = every other day', rv.recurringRej[0].howOften, 'Every other day');
+const h10 = rv.hours.find(h => h.hour === '10:30–11:30');
+check('By hour: 10:30–11:30 rejection rate = 3 / 100', h10.ratePercent, 3);
+check('By hour: 10:30–11:30 downtime = 10 + 40', h10.downtimeMin, 50);
+check('Hidden facts found', rv.facts.map(f => f.key).join(','), 'hour_quality,hour_downtime,recurring_downtime,recurring_rejection,part_rate,no_reason');
+check('Hidden fact: worst hour is 10:30–11:30', rv.facts[0].title, 'Rejections peak at 10:30–11:30');
+state.rejection.push({ date: '2026-10-08', hour: H('22'), shift: 'Shift B', machine: 'PP-1', model: 'A', production: 300, reject: 0, rejectionReason: '' });
+const rvB = rvBuild('2026-10-05', '2026-10-11');
+check('Hidden fact: night shift with output but 0 rejections is flagged', String(rvB.facts.some(f => f.key === 'shift_no_rejections' && f.title.startsWith('Shift B'))), 'true');
+check('Shift: Shift B made 300 pieces on 1 day', `${rvB.shifts[1].production}/${rvB.shifts[1].days}`, '300/1');
 
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nAll formula checks passed');
 process.exit(failed ? 1 : 0);

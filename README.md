@@ -10,24 +10,34 @@ The project is intentionally minimal and modular:
 
 ```
 Smart Control Tower/
-├── assets/                    # Static UI branding & images
-│   ├── ai-assistant-avatar.png
-│   └── amber_logo.png
+├── public/                    # THE WEBSITE (only copy) — served locally and by Vercel
+│   ├── index.html             # UI + formula engine + charts
+│   └── assets/                # Logo, favicon, AI avatar
 │
-├── data/                      # Client's plant operational Excel files (private)
-│   ├── DFOS  Dashboard (1).xlsx
-│   ├── Fw__Downtime_data_from_Nov'25_to_Mar'26/
+├── server.py                  # Local server + AI proxy (python server.py)
+├── api/index.py               # Vercel's AI endpoint; reuses server.py
+│
+├── data/                      # INPUT: client Excel files (private)
 │   ├── Fw__PRESS_SHOP_OEE_REPORT_AND_REJECTION_DOWNTIME_REPORT_ (1)/
-│   └── Fw__REJECTION/
+│   ├── Fw__Downtime_data_from_Nov'25_to_Mar'26/
+│   ├── Fw__REJECTION/
+│   └── analysis/              # OUTPUT: audit & diagnostics workbooks
 │
-├── .env                       # Local API credentials (OpenAI / Mistral / Groq)
-├── .env.example               # Template environment configuration
-├── .gitignore                 # Standard git ignores
-├── index.html                 # The complete web dashboard application
-├── requirements.txt           # Python dependencies (openpyxl)
-├── README.md                  # Project overview
-└── server.py                  # Standalone Python local server & AI API proxy
+├── docs/                      # Project documents (not used by the website)
+│   ├── Project_One_Pager.pdf / .html
+│   ├── HISTORICAL_DATA_AUDIT_REPORT.md
+│   ├── checkpoints/           # Session checkpoints
+│   └── images/                # OEE formula sheet, screenshots
+│
+├── tests/formula_check.js     # Verifies KPI math (node tests/formula_check.js)
+├── .env                       # API keys (Groq / OpenAI / Mistral), not in git
+├── .env.example               # Template for .env
+├── vercel.json                # Routes /api/* → Python
+├── requirements.txt / pyproject.toml / uv.lock
+└── README.md
 ```
+
+Rule: edit `public/index.html` directly. There is no second copy to keep in sync.
 
 ---
 

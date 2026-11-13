@@ -18,7 +18,7 @@ import threading
 import time
 
 REPORT_TYPES = ("production", "downtime", "rejection")
-INSIGHT_KINDS = ("daily", "monthly", "question", "chat")
+INSIGHT_KINDS = ("daily", "weekly", "monthly", "question", "chat")
 MAX_ROWS_PER_CHUNK = 2000
 SESSION_SECONDS = 12 * 3600
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS report_rows_type_date ON report_rows (report_type, pr
 CREATE INDEX IF NOT EXISTS report_rows_upload ON report_rows (upload_id);
 CREATE TABLE IF NOT EXISTS insights (
   id BIGSERIAL PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('daily','monthly','question','chat')),
+  kind TEXT NOT NULL CHECK (kind IN ('daily','weekly','monthly','question','chat')),
   period TEXT NOT NULL DEFAULT '',
   question TEXT NOT NULL DEFAULT '',
   answer TEXT NOT NULL DEFAULT '',
@@ -57,6 +57,16 @@ CREATE TABLE IF NOT EXISTS insights (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS insights_one_review ON insights (kind, period) WHERE kind IN ('daily','monthly');
+CREATE UNIQUE INDEX IF NOT EXISTS insights_one_weekly ON insights (kind, period) WHERE kind = 'weekly';
+-- Databases made before weekly reviews existed: allow the 'weekly' kind (runs once).
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'insights_kind_check'
+             AND position('weekly' in pg_get_constraintdef(oid)) = 0) THEN
+    ALTER TABLE insights DROP CONSTRAINT insights_kind_check;
+    ALTER TABLE insights ADD CONSTRAINT insights_kind_check
+      CHECK (kind IN ('daily','weekly','monthly','question','chat'));
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS audit_log (
   id BIGSERIAL PRIMARY KEY,
   at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -392,6 +402,8 @@ def save_insight(conn, body: dict) -> dict:
     period = str(body.get("period") or "")[:20]
     if kind in ("daily", "question") and not DATE_RE.match(period):
         raise StoreError(400, "A daily insight needs a date.")
+    if kind == "weekly" and not DATE_RE.match(period):
+        raise StoreError(400, "A weekly insight needs the Monday it starts on.")
     if kind == "monthly" and not MONTH_RE.match(period):
         raise StoreError(400, "A monthly insight needs a month.")
     tags = sorted({str(t).strip()[:60] for t in (body.get("tags") or [])[:30] if str(t).strip()})
@@ -400,7 +412,15 @@ def save_insight(conn, body: dict) -> dict:
         json.dumps(body.get("payload") if isinstance(body.get("payload"), dict) else {}),
         tags, str(body.get("dataKey") or "")[:500],
     )
-    if kind in ("daily", "monthly"):
+    if kind == "weekly":
+        # One saved review per week (period = its Monday): a newer run replaces the older one.
+        sql = """INSERT INTO insights (kind, period, question, answer, payload, tags, data_key)
+                 VALUES (%s, %s, %s, %s, %s, %s, %s)
+                 ON CONFLICT (kind, period) WHERE kind = 'weekly'
+                 DO UPDATE SET question = EXCLUDED.question, answer = EXCLUDED.answer, payload = EXCLUDED.payload,
+                   tags = EXCLUDED.tags, data_key = EXCLUDED.data_key, created_at = now()
+                 RETURNING id"""
+    elif kind in ("daily", "monthly"):
         # One saved review per day or month: a newer run replaces the older one.
         sql = """INSERT INTO insights (kind, period, question, answer, payload, tags, data_key)
                  VALUES (%s, %s, %s, %s, %s, %s, %s)
