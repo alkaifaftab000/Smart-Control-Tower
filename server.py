@@ -246,46 +246,40 @@ def handle_question(messages: list[dict], fast: bool = False, json_mode: bool = 
     if not any((openai_key, mistral_key, groq_key)):
         raise ProviderError(503, "Add OPENAI_API_KEY, MISTRAL_API_KEY, or GROQ_API_KEY to the local .env, then restart this server.")
 
-    reasons = []
-    if openai_key:
+    # Try each provider in order. Any provider failure (expired or wrong key, rate limit,
+    # outage, timeout, no text) moves on to the next one, so one bad key cannot take the
+    # whole assistant down. The request itself was already validated by the caller.
+    providers = [
+        ("openai", "OpenAI", openai_key, lambda: ask_openai(messages, fast, json_mode)),
+        ("mistral", "Mistral", mistral_key, lambda: ask_mistral(messages, json_mode)),
+        ("groq", "Groq", groq_key, lambda: ask_groq(messages)),
+    ]
+    reasons: list[str] = []
+    failures: list[ProviderError] = []
+    for provider, label, key, ask in providers:
+        if not key:
+            reasons.append(f"{label} key not configured")
+            continue
         try:
-            answer, model = ask_openai(messages, fast, json_mode)
-            return {"answer": answer, "provider": "openai", "model": model, "fallback": False}
+            answer, model = ask()
         except ProviderError as error:
-            if error.status != 429:
-                raise
-            reasons.append("OpenAI rate limit")
-    else:
-        reasons.append("OpenAI key not configured")
+            failures.append(error)
+            reasons.append(f"{label}: {error.message}")
+            print(f"AI provider {label} failed ({error.status}): {error.message}")
+            continue
+        fallback = provider != "openai"
+        if fallback and not json_mode:
+            # JSON answers are parsed by the page, so they get no trailing note.
+            answer += fallback_attribution(provider, model)
+        result = {"answer": answer, "provider": provider, "model": model, "fallback": fallback}
+        if fallback:
+            result["fallbackReason"] = "; ".join(reasons)
+        return result
 
-    last_rate_limit = None
-    if mistral_key:
-        try:
-            answer, model = ask_mistral(messages, json_mode)
-            reason = "; ".join(reasons)
-            return {"answer": answer + fallback_attribution("mistral", model), "provider": "mistral", "model": model, "fallback": True, "fallbackReason": reason}
-        except ProviderError as error:
-            if error.status != 429:
-                raise
-            last_rate_limit = error
-            reasons.append("Mistral rate limit")
-    else:
-        reasons.append("Mistral key not configured")
-
-    if groq_key:
-        try:
-            answer, model = ask_groq(messages)
-            reason = "; ".join(reasons)
-            return {"answer": answer + fallback_attribution("groq", model), "provider": "groq", "model": model, "fallback": True, "fallbackReason": reason}
-        except ProviderError as error:
-            if error.status != 429:
-                raise
-            last_rate_limit = error
-            reasons.append("Groq rate limit")
-
-    if last_rate_limit:
-        raise ProviderError(429, "All configured AI providers are rate-limited. Wait, then retry, or check provider quotas.") from None
-    raise ProviderError(503, "No fallback provider is configured. Add MISTRAL_API_KEY or GROQ_API_KEY to the local .env, then restart this server.")
+    detail = "; ".join(reasons)
+    if failures and all(error.status == 429 for error in failures):
+        raise ProviderError(429, f"All configured AI providers are rate-limited. Wait, then retry. ({detail})")
+    raise ProviderError(502, f"No AI provider could answer. {detail}")
 
 
 class PilotHandler(BaseHTTPRequestHandler):
